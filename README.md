@@ -1,5 +1,7 @@
 # simple_ib_mot
 
+![screenshoy](/still_frame.png)
+
 This is a simple implementation of a multiple object tracking task with an unexpected object.
 
 It features an instruction screen before the trials themselves. By default the display objects are black and white, and the unexpected object is a mid-gray cross. Trials are 15 seconds long, and the unexpected object offsets with 2 seconds remaining. All of these attributes can be edited, and the object classes extended for different or additional behavior.
