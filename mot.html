@@ -1,0 +1,604 @@
+
+<!---
+
+Copyright 2019 Katherine Wood
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+/--->
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <title>Multiple Object Tracking</title>
+    <style>
+    canvas {
+      position: absolute;
+      top: 0px;
+      left: 0px;
+    }
+    #unexDisplay {
+      background-color: transparent;
+      z-index: 1;
+      margin: 0 auto;
+    }
+    #objDisplay {
+      background-color: transparent;
+      z-index: 0;
+    }
+    #fixDisplay {
+      background-color: transparent;
+      z-index:3;
+      cursor: none;
+    }
+    #bgDisplay {
+      background-color: #58ACFA;
+      z-index: -2;
+    }
+    #trialScreen {
+      font-family: Arial;
+      font-size: 25px;
+      position: relative;
+      display: none;
+      margin: 0 auto;
+      width: 700px;
+    }
+    #instructionScreen {
+      font-family: 'Arial';
+      font-size: 20px;
+      text-align: center;
+      display: none;
+      width: 700px;
+      margin: 0 auto;
+      top: 70px;    
+    }
+    .survey {
+      font-family: 'Arial';
+      font-size: 18px;
+      text-align: center;
+      display: none;
+      width: 700px;
+      margin: 0 auto;
+      top: 70px;    
+    }
+    #unex_obj_location_qs {
+      background-color: #58ACFA;
+      z-index: 10;
+      margin: 0 auto;
+    }
+    #endScreen {
+      font-family: 'Arial';
+      font-size: 18px;
+      text-align: center;
+      display: none;
+      width: 700px;
+      margin: 0 auto;
+      top: 70px;
+      display: none;     
+    }
+    #debrief {
+      font-family: 'Arial';
+      font-size: 18px;
+      text-align: center;
+      display: none;
+      width: 800px;
+      margin: 0 auto; 
+      left: 600px;
+      top: 10px;     
+    }
+    input[type=number]{
+      width: 80px;
+    } 
+    .nextButton {
+      background-color: #C70039;
+      font-size: 50px;
+      width: 400px;
+      padding: 15px;
+      margin: 0 auto;
+    }
+    .nextButton:hover {
+      background-color: #900C3F;;
+      cursor: pointer;
+    } 
+    fieldset { 
+        border: 0px;
+        font-family: "Arial", sans-serif;
+        padding-left: 0px;
+        padding-right: 0px;
+        top: 70px;
+    }
+    form { 
+        border: 0px;
+        font-family: "Arial", sans-serif;
+        padding-left: 0px;
+        padding-right: 0px;
+        top: 70px;
+    }           
+    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  </head>
+  <body>
+    <div id="instructionScreen">
+      <br /><br />
+      Please close as many browser tabs as possible to ensure the task runs smoothly.
+      <br /><br />
+      In this task, you will see four white shapes and four black shapes. These shapes will move and bounce around inside a blue rectangle. These shapes will randomly speed up and slow down while they move, making them tricky to follow. 
+      <br /><br />
+      <p id="attend_inst"></p>
+      <br />
+      Try to keep your eyes fixed on the dark blue square while you complete this task.
+      <br /><br />
+      Click the button below to begin.
+      <br /><br /><br />
+      <div id='startButton' class="nextButton">START</div>
+    </div>
+    
+    <div id="trialScreen"> 
+      <canvas id="unexDisplay" width="700" height="600"></canvas>
+      <canvas id="objDisplay" width="700" height="600"></canvas>
+      <canvas id="fixDisplay" width="700" height="600"></canvas>
+      <canvas id="bgDisplay" width="700" height="600"></canvas>
+    </div>
+  <script>
+    
+    function run() {
+      trial = new Trial;
+      if (trial.init()) {
+          if (trialsCompleted == 0) {
+            trial.instructionScreen.style.display = "block";
+            document.getElementById("startButton").onclick = function() {trial.start()}; 
+          } else {
+            trial.start();
+          }         
+      };
+  }; //end of function run()
+
+  function getRandomList(n, min, max) {
+    for (var a=[],i=0;i<max;++i) a[i]=i;
+    // http://stackoverflow.com/questions/962802#962890
+    function shuffle(array) {
+      var tmp, current, top = array.length;
+      if(top) while(--top) {
+        current = Math.floor(Math.random() * (top + 1));
+        tmp = array[current];
+        array[current] = array[top];
+        array[top] = tmp;
+      }
+      return array;
+    }
+
+    return shuffle(a).slice(0, n);
+  }; 
+
+  /**
+   * Randomize array element order in-place.
+   * Using Durstenfeld shuffle algorithm.
+   */
+  function shuffle(array) {
+      for (var i = array.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var temp = array[i];
+          array[i] = array[j];
+          array[j] = temp;
+      }
+      return array;
+  };
+
+    function Trial() {
+      this.init = function() {
+        this.trialDur = 15000;
+        this.waitTime = waitTime;
+        if (trialsCompleted == (totalTrials - 1)) {
+          this.unexObj = new UnexpectedObject(unexPosX, unexPosY, unexdX, windowSize);
+          this.unexCanvas = document.getElementById("unexDisplay");
+          this.unexContext = this.unexCanvas.getContext("2d");
+        }
+        this.trialOver = false;
+        this.trialScreen = document.getElementById("trialScreen");
+        if (trialsCompleted == 0) {
+          this.instructionScreen = document.getElementById("instructionScreen");
+        }
+        this.fixCanvas = document.getElementById("fixDisplay");
+        this.fixContext = this.fixCanvas.getContext("2d");
+        this.objCanvas = document.getElementById("objDisplay");
+        this.objContext = this.objCanvas.getContext("2d");
+        this.bgCanvas = document.getElementById("bgDisplay");
+        this.bgContext = this.bgCanvas.getContext("2d");
+        this.objectArray = [];
+        return true;
+      };
+      this.start = function() {
+        if (trialsCompleted == 0) {
+          this.instructionScreen.style.display = "none";
+        };
+        
+        this.objectArray = createAndPlaceObjects();
+
+        this.trialScreen.style.display = "block";
+
+        this.fixation = new Fixation();
+        this.fixation.draw();
+
+        for (i=0; i < this.objectArray.length; i ++) {
+          this.objectArray[i].draw();
+        };
+
+        this.trialStartTime = Date.now();
+
+        setTimeout(animate, this.waitTime);
+      }; //end of start
+
+    this.end = function() {
+      this.objContext.clearRect(0, 0, this.objCanvas.width, this.objCanvas.height);
+      window.cancelAnimationFrame(animate);
+      document.getElementById("trialScreen").style.display = 'none';
+    }       
+  }; //end of trial class    
+
+    function Fixation() {
+        this.posX = Math.floor(bgCanvas.width/2);
+        this.posY = Math.floor(bgCanvas.height/2);
+        this.height = 10;
+        this.canvas = document.getElementById("fixDisplay");
+        this.context = this.canvas.getContext("2d");
+        this.draw = function() {
+            this.context.save();
+            this.context.fillStyle = "#0000FF";
+            this.context.strokeStyle = "#0000FF";
+            this.context.fillRect(this.posX - .5*this.height, this.posY - .5*this.height, 
+                this.height, this.height);
+            this.context.restore();
+        }
+    };
+
+    function UnexpectedObject(x, y, dX, windowSize) {
+      this.originX = x;
+      this.posX = x;
+      this.posY = y;
+      this.dX = windowSize > 0 ? dX : 0;
+      this.vel = 2;
+      this.canvas = document.getElementById("unexDisplay");
+      this.context = this.canvas.getContext("2d");
+      this.windowSize = windowSize;
+      this.onsetTime = 13000 - Math.floor((this.canvas.width*this.windowSize + 40)/(2*60) * 1000);
+      this.barThickness = 14;
+      this.barLength = 40;
+      this.done = this.windowSize == 0;
+
+      this.draw = function() {
+        this.context.save();
+        this.context.fillStyle = '#7f7f7f';
+        this.context.fillRect(this.posX + this.barLength/2 - this.barThickness/2, this.posY, 
+                                  this.barThickness, this.barLength);
+        this.context.fillRect(this.posX, this.posY + this.barLength/2 - this.barThickness/2, 
+                                  this.barLength, this.barThickness);
+        this.context.restore();
+      };
+
+      this.move = function() {
+        this.context.save();
+        this.context.clearRect(this.posX + this.barLength/2 - this.barThickness/2, this.posY, 
+                                  this.barThickness, this.barLength);
+        this.context.clearRect(this.posX, this.posY + this.barLength/2 - this.barThickness/2, 
+                                  this.barLength, this.barThickness);
+        this.context.restore();
+        this.posX += this.vel * this.dX;
+        if (Math.abs(this.posX - this.originX) >= this.canvas.width + 2*this.barLength) {
+          this.done = true;
+        }
+        this.draw();
+      };
+    };
+
+    //This function specifies the two stimuli types and handles their appearance and movement behavior.
+    function Stim(posX, posY, color, dX, dY) {
+        colorDict = {
+                    white:'#FFFFFF',
+                    black: '#000000'
+                    };
+        this.speedSwitchTime = Date.now() + Math.floor((Math.random()*1000)) + 300; //point at which object's velocity will change, in ms
+        this.color = color;
+        this.hexColor = colorDict[this.color];
+        this.width = 40;
+        this.canvas = document.getElementById("objDisplay");
+        this.context = this.canvas.getContext("2d");
+        this.boxLeft = this.width/2;
+        this.boxRight = this.canvas.width - this.width/2;
+        this.boxTop =  this.width/2;
+        this.boxBottom = this.canvas.height  - this.width/2;
+        this.vel = Math.floor((Math.random()*2)+1);
+        this.dY = dY;
+        this.dX = dX;
+        this.posX = posX;
+        this.posY = posY;
+        this.bounces = 0;
+      };
+
+      Stim.prototype.checkCollision = function() {
+        if (this.posX > this.boxRight) {
+                  this.posX = this.boxRight;
+                  this.dX *= -1;
+                  this.bounces += 1;
+              }
+              if (this.posX < this.boxLeft) {
+                  this.posX = this.boxLeft;
+                  this.dX *= -1;
+                  this.bounces += 1;
+              }
+              if (this.posY > this.boxBottom) {
+                  this.posY = this.boxBottom;
+                  this.dY *= -1;
+                  this.bounces += 1;             
+              }                    
+              if (this.posY < this.boxTop) {
+                  this.posY = this.boxTop;
+                  this.dY *= -1;
+                  this.bounces += 1;
+              }
+        };
+
+      Stim.prototype.updateVelocity = function() {
+        if (Date.now() >= this.speedSwitchTime) {
+            //If so, pick the next switch time and pick a new velocity
+            this.speedSwitchTime = Date.now() + Math.floor((Math.random()*1000)) + 300;
+            this.vel = this.vel + [-1, 1][Math.floor(Math.random()*2)];
+            if (this.vel < 1) {
+              this.vel = 1;
+            } else if (this.vel > 3) {
+              this.vel = 3;
+            }
+            //This clause checks to see whether the object is inside the bounds
+            //of the box, and then randomly decides whether to change the
+            //vertical velocity, horizontal velocity, or both.
+            if ((this.posY > this.boxBottom) && (this.posY < this.boxTop) && 
+                (this.posX > this.boxLeft) && (this.posX < this.boxRight)) {
+                this.dX *= [-1, 1][Math.floor((Math.random()*2))]
+                this.dY *= [-1, 1][Math.floor((Math.random()*2))]
+            }
+          }
+        };
+
+        Stim.prototype.updatePosition = function() {
+            this.posX += this.vel * this.dX;
+            this.posY += this.vel * this.dY;
+        };
+
+    function Square(posX, posY, color, dX, dY){
+      Stim.call(this, posX, posY, color, dX, dY);
+    };
+
+    Square.prototype = Object.create(Stim.prototype);
+    Square.prototype.constructor = Square;
+
+    Square.prototype.draw = function() {
+        this.context.save(); 
+        this.context.fillStyle = this.hexColor;
+        this.context.fillRect(this.posX - this.width/2, this.posY - this.width/2, this.width, this.width);
+        this.context.restore();          
+    };
+
+    Square.prototype.clear = function() {
+        this.context.save();
+        this.context.clearRect(this.posX - this.width/2, this.posY - this.width/2, this.width, this.width);
+        this.context.restore();
+    };
+
+    Square.prototype.move = function() {
+        this.clear();
+        this.checkCollision();
+        this.updateVelocity();
+        this.updatePosition();
+        this.draw()
+    };
+
+    function Triangle(posX, posY, color, dX, dY){
+      Stim.call(this, posX, posY, color, dX, dY);
+      this.width = 50;
+    };
+
+    Triangle.prototype = Object.create(Stim.prototype);
+    Triangle.prototype.constructor = Triangle;
+
+    Triangle.prototype.draw = function() {
+      this.context.save();
+      this.context.fillStyle = this.hexColor;
+      this.context.beginPath();
+      this.context.moveTo(this.posX - .5*this.width, this.posY + .5*this.width);
+      this.context.lineTo(this.posX + .5*this.width, this.posY + .5*this.width);
+      this.context.lineTo(this.posX, this.posY - .5*this.width);
+      this.context.fill();
+      this.context.restore();        
+    };
+
+    Triangle.prototype.clear = function() {
+        this.context.save();
+        this.context.beginPath();
+        this.context.moveTo(this.posX - .5*this.width - 2, this.posY + .5*this.width + 2);
+        this.context.lineTo(this.posX + .5*this.width + 2, this.posY + .5*this.width + 2);
+        this.context.lineTo(this.posX, this.posY - .5*this.width - 2);
+        this.context.clip();
+        this.context.clearRect(this.posX - .5*this.width, this.posY - .5*this.width, this.width, this.width);
+        this.context.restore();
+    };
+
+    Triangle.prototype.move = function() {
+        this.clear();
+        this.checkCollision();
+        this.updateVelocity();
+        this.updatePosition();
+        this.draw()
+    };
+
+    function Circle(posX, posY, color, dX, dY){
+      Stim.call(this, posX, posY, color, dX, dY);
+
+      this.radius = 23;
+    };
+
+    Circle.prototype = Object.create(Stim.prototype);
+    Circle.prototype.constructor = Circle;
+
+    Circle.prototype.draw = function() {
+      this.context.save();
+      this.context.fillStyle = this.hexColor;
+      this.context.beginPath();
+      this.context.arc(this.posX, this.posY, this.radius, 0, 2 * Math.PI, false);
+      this.context.closePath();
+      this.context.fill();
+      this.context.restore();       
+    };
+
+    Circle.prototype.clear = function() {
+      this.context.save();
+      this.context.beginPath();
+      this.context.arc(this.posX, this.posY, this.radius+1, 0, 2*Math.PI, true);
+      this.context.clip();
+      this.context.clearRect(this.posX-this.radius-1, this.posY-this.radius-1, this.radius*2+1, this.radius*2+1);
+      this.context.restore();
+    };
+
+    Circle.prototype.move = function() {
+        this.clear();
+        this.checkCollision();
+        this.updateVelocity();
+        this.updatePosition();
+        this.draw()
+    };
+
+    function Diamond(posX, posY, color, dX, dY){
+      Stim.call(this, posX, posY, color, dX, dY);
+
+      this.width = 56;
+    };
+
+    Diamond.prototype = Object.create(Stim.prototype);
+    Diamond.prototype.constructor = Diamond;
+
+    Diamond.prototype.draw = function() {
+      this.context.save();
+      this.context.fillStyle = this.hexColor;
+      this.context.beginPath();
+      this.context.moveTo(this.posX, this.posY - this.width*.5);
+      this.context.lineTo(this.posX + .5*this.width, this.posY);
+      this.context.lineTo(this.posX, this.posY + .5*this.width);
+      this.context.lineTo(this.posX - .5*this.width, this.posY);
+      this.context.closePath();
+      this.context.fill();
+      this.context.restore();      
+    };
+
+    Diamond.prototype.clear = function() {
+      this.context.save();
+      this.context.beginPath();
+      this.context.moveTo(this.posX, this.posY - this.width*.5 - 2);
+      this.context.lineTo(this.posX + .5*this.width + 2, this.posY);
+      this.context.lineTo(this.posX, this.posY + .5*this.width + 2);
+      this.context.lineTo(this.posX - .5*this.width - 2, this.posY);
+      this.context.clip();
+      this.context.clearRect(this.posX-this.width*.5 - 2, this.posY-this.width*.5 - 2, this.width + 2, this.width + 2);
+      this.context.restore();
+    };
+
+    Diamond.prototype.move = function() {
+      this.clear();
+      this.checkCollision();
+      this.updateVelocity();
+      this.updatePosition();
+      this.draw()
+    };
+
+      requestAnimFrame = (function(){
+        return  window.requestAnimationFrame   ||
+                window.webkitRequestAnimationFrame ||
+                window.mozRequestAnimationFrame    ||
+                window.oRequestAnimationFrame      ||
+                window.msRequestAnimationFrame     ||
+                function(callback, element){
+                    window.setTimeout(callback, 1000 / 60);
+                };
+      })();
+
+    function animate() {
+      if (trial.trialOver) {
+        return;
+      }
+      currTime = new Date();
+      trialTime = currTime - trial.trialStartTime;
+      if (trialsCompleted == (totalTrials - 1) && (trialTime >= trial.unexObj.onsetTime) && !trial.unexObj.done) {
+          trial.unexObj.move();
+      };
+      if (trialTime >= trial.trialDur) {
+        trial.trialOver = true;
+        setTimeout(function(){trial.end()}, 0);
+      };
+      trial.objectArray.forEach(function(element) {
+        element.move();
+      });
+      anim = window.requestAnimFrame(animate);
+    }; 
+
+    function createAndPlaceObjects() {
+      var spawnOffset = 100;
+      var colors = ['black', 'white'];
+      var objects = []
+      for (i=0; i < colors.length; i++) {
+          objects.push(new Square(Math.floor((Math.random()*(bgCanvas.width - 2*spawnOffset) + spawnOffset)), 
+            Math.floor((Math.random()*(bgCanvas.height - 2*spawnOffset) + spawnOffset)), colors[i], 
+            [-1, 1][Math.floor((Math.random()*2))], [-1, 1][Math.floor((Math.random()*2))]));
+          objects.push(new Circle(Math.floor((Math.random()*(bgCanvas.width - 2*spawnOffset) + spawnOffset)), 
+            Math.floor((Math.random()*(bgCanvas.height - 2*spawnOffset) + spawnOffset)), colors[i], 
+            [-1, 1][Math.floor((Math.random()*2))], [-1, 1][Math.floor((Math.random()*2))]));
+          objects.push(new Diamond(Math.floor((Math.random()*(bgCanvas.width - 2*spawnOffset) + spawnOffset)), 
+            Math.floor((Math.random()*(bgCanvas.height - 2*spawnOffset) + spawnOffset)), colors[i], 
+            [-1, 1][Math.floor((Math.random()*2))], [-1, 1][Math.floor((Math.random()*2))]));
+          objects.push(new Triangle(Math.floor((Math.random()*(bgCanvas.width - 2*spawnOffset) + spawnOffset)), 
+            Math.floor((Math.random()*(bgCanvas.height - 2*spawnOffset) + spawnOffset)), colors[i], 
+            [-1, 1][Math.floor((Math.random()*2))], [-1, 1][Math.floor((Math.random()*2))]));
+      }
+      return(objects);
+    };
+
+  function main() {
+      setTimeout(function(){
+        if ((screen.width < 480) || (screen.height < 480)) {
+          var mobile = document.getElementById("mobileDetected");
+          mobile.style.display = "block";
+        } else {
+          displayObjects = ['white', 'black'];
+          selection = Math.floor(Math.random()*2);
+          attendedObj = displayObjects[selection];
+          unattendedObj = displayObjects[!selection ? 1 : 0];
+
+          document.getElementById("attend_inst").innerHTML = "Please count the number of times the " + 
+                      attendedObj.toUpperCase() + " shapes bounce off " +
+                      "of the sides of the blue rectangle. Do not count bounces by the " +
+                      unattendedObj.toUpperCase() + " shapes. You will be asked to report your total count. "
+
+          windowSize = 1;
+          bgCanvas = document.getElementById("bgDisplay");
+
+          movementRandomizer = Math.floor((Math.random()*2));
+          unexdX = [-1, 1][movementRandomizer];
+          unexPosX = [windowSize*bgCanvas.width, -40][movementRandomizer];
+          unexPosY = bgCanvas.height/2 - 20;
+
+          unexpectedColor = 'gray';
+          unexpectedShape = 'cross';
+          totalTrials = 1;
+          trialsCompleted = 0;
+          waitTime = 1000;
+          run();
+        }
+    }, 100);
+  }
+
+  main();
+
+  </script>
+
+  </body>
+</html>
