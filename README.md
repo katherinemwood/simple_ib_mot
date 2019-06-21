@@ -9,3 +9,5 @@ It features an instruction screen before the trials themselves. By default the d
 Based on code originally provided by [Cary Stothart](https://github.com/cstothart).
 
 See the [accompanying OSF page](https://osf.io/d95hz/) for more info. 
+
+Cite as: Wood, K., 2019. simple_ib_mot. Version 1.0. https://github.com/katherinemwood/simple_ib_mot.
