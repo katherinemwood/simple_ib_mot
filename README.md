@@ -1,6 +1,6 @@
 # simple_ib_mot
 
-![screenshoy](/still_frame.png)
+<img src="https://github.com/katherinemwood/simple_ib_mot/blob/master/still_frame.png" height="300" width="350">
 
 This is a simple implementation of a multiple object tracking task with an unexpected object.
 
